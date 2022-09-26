@@ -1,38 +1,71 @@
 const {response} = require('express');
+const bcryptjs = require('bcryptjs');
+const Usuario = require('../models/usuario');
 
-const usuariosGet = (req, res) => {
+const usuariosGet = async(req, res) => {
+    const {limite = 5, desde =  0} = req.query;
+    const query = { estado: true};
 
-    const query = req.query;
+    const [total, usuarios] = await Promise.all([
+        Usuario.countDocuments(query),
+        Usuario.find(query)
+        .skip(desde)
+        .limit(limite)
+    ]);
 
-    res.status(403).json({
-        msg: 'get API - Controlador',
-        query
+    res.status(200).json({
+        total,
+        usuarios
     })
 }
 
-const usuarioPost = (req, res) => {
+const usuarioPost = async(req, res) => {
+    const { nombre, correo, password, rol} = req.body;
+    const usuario = new Usuario({ nombre, correo, password, rol});
 
-    const body = req.body;
+    //Encriptar la contraseña
+    const salt = bcryptjs.genSaltSync();
+    usuario.password = bcryptjs.hashSync(password, salt);
 
-    res.status(403).json({
-        msg: 'post API',
-        body
+
+    //Cuardar en BD
+    await usuario.save();
+
+    res.status(200).json({
+        msg: 'Usuario Registrado',
+        usuario
     })
 }
 
-const usuarioPut = (req, res) => {
-
+const usuarioPut = async(req, res) => {
     const id = req.params.id;
+    const { _id, password, google, ...resto} = req.body;
 
-    res.status(403).json({
-        msg: 'put API',
-        id
+    //TODO validar contra base de datos
+    if ( password ){
+        //Encriptar la contraseña
+        const salt = bcryptjs.genSaltSync();
+        resto.password = bcryptjs.hashSync(password, salt);
+    }
+
+    const usuario = await Usuario.findByIdAndUpdate(id, resto);
+
+    res.status(200).json({
+        msg: 'Usuario Actualizado',
+        usuario
     })
 }
 
-const usuarioDelete = (req, res) => {
-    res.status(403).json({
-        msg: 'delete API'
+const usuarioDelete = async(req, res) => {
+    const {id} = req.params;
+    //Fisicamente lo borramos
+    //const usuario = await Usuario.findByIdAndDelete(id);
+
+    //Borrado logico
+    const usuario = await Usuario.findByIdAndUpdate(id, {estado: false});
+
+    res.status(200).json({
+        usuario
     })
 }
 
